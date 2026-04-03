@@ -2,20 +2,67 @@
 <html>
 <head>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Tap Game</title>
+<style>
+  body { margin:0; text-align:center; background:black; }
+  canvas { background:black; width:100%; max-width:400px; }
+  .controls button {
+    width:70px; height:70px; margin:5px;
+    font-size:20px;
+  }
+</style>
 </head>
-<body style="text-align:center; font-family:sans-serif;">
+<body>
 
-<h1>Tap Fast!</h1>
-<h2 id="score">0</h2>
-<button onclick="tap()" style="font-size:30px;">TAP</button>
+<canvas id="game" width="400" height="400"></canvas>
+
+<div class="controls">
+  <br>
+  <button onclick="setDir(0,-20)">⬆️</button><br>
+  <button onclick="setDir(-20,0)">⬅️</button>
+  <button onclick="setDir(20,0)">➡️</button><br>
+  <button onclick="setDir(0,20)">⬇️</button>
+</div>
 
 <script>
-let score = 0;
-function tap(){
-  score++;
-  document.getElementById("score").innerText = score;
+const canvas = document.getElementById("game");
+const ctx = canvas.getContext("2d");
+
+let snake = [{x:200,y:200}];
+let food = {x:100,y:100};
+let dx=20, dy=0;
+
+function setDir(x,y){
+  if(x !== -dx && y !== -dy){
+    dx=x; dy=y;
+  }
 }
+
+function draw(){
+  ctx.clearRect(0,0,400,400);
+
+  snake.forEach(s=>{
+    ctx.fillStyle="lime";
+    ctx.fillRect(s.x,s.y,20,20);
+  });
+
+  ctx.fillStyle="red";
+  ctx.fillRect(food.x,food.y,20,20);
+
+  let head={x:snake[0].x+dx,y:snake[0].y+dy};
+
+  if(head.x===food.x && head.y===food.y){
+    food={
+      x:Math.floor(Math.random()*20)*20,
+      y:Math.floor(Math.random()*20)*20
+    };
+  } else {
+    snake.pop();
+  }
+
+  snake.unshift(head);
+}
+
+setInterval(draw,100);
 </script>
 
 </body>
