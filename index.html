@@ -5,74 +5,82 @@
 <style>
 body{
   margin:0;
-  background:#0a0a0a;
-  color:white;
-  text-align:center;
-  font-family:sans-serif;
+  background:#222;
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  height:100vh;
+  font-family:monospace;
 }
 
-h2{margin:10px;}
+#frame{
+  background:#555;
+  padding:20px;
+  border-radius:20px;
+  box-shadow:0 0 30px #000 inset;
+}
 
 canvas{
-  width:90vw;
-  max-width:420px;
-  height:90vw;
-  max-height:420px;
-  background:#000;
-  border-radius:12px;
-  box-shadow:0 0 25px rgba(0,255,150,0.2);
+  background:#9bbc0f;
+  border:10px solid #0f380f;
 }
 </style>
 </head>
 <body>
 
-<h2>🐍 Score: <span id="score">0</span></h2>
-<canvas id="game" width="400" height="400"></canvas>
+<div id="frame">
+  <canvas id="game" width="300" height="300"></canvas>
+</div>
 
 <script>
 const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
 
-const size = 20;
+const size = 15;
 const tiles = 20;
 
-let snake, dir, nextDir, food;
-let score = 0;
-let speed = 6;
-
-let lastTime = 0;
-let acc = 0;
+let snake, dx, dy, food, score;
+let gameOver = false;
+let speed = 120;
+let loop;
 
 // ===== INIT =====
 function init(){
   snake = [{x:10,y:10}];
-  dir = {x:1,y:0};
-  nextDir = dir;
-  food = spawnFood();
+  dx = 1;
+  dy = 0;
   score = 0;
-  speed = 6;
-  document.getElementById("score").innerText = score;
+  gameOver = false;
+  speed = 120;
+
+  food = spawnFood();
+
+  clearInterval(loop);
+  loop = setInterval(gameLoop, speed);
 }
 
-// ===== FOOD =====
+// ===== FOOD (never on snake) =====
 function spawnFood(){
-  return {
-    x:Math.floor(Math.random()*tiles),
-    y:Math.floor(Math.random()*tiles),
-    pulse:0
-  };
+  let newFood;
+  while(true){
+    newFood = {
+      x: Math.floor(Math.random()*tiles),
+      y: Math.floor(Math.random()*tiles)
+    };
+
+    let onSnake = snake.some(s => s.x===newFood.x && s.y===newFood.y);
+    if(!onSnake) return newFood;
+  }
 }
 
 // ===== UPDATE =====
 function update(){
-  dir = nextDir;
-
   let head = {
-    x: snake[0].x + dir.x,
-    y: snake[0].y + dir.y
+    x: snake[0].x + dx,
+    y: snake[0].y + dy
   };
 
-  // 🔥 WRAP-AROUND (OG FEATURE)
+  // wrap-around
   if(head.x < 0) head.x = tiles - 1;
   if(head.x >= tiles) head.x = 0;
   if(head.y < 0) head.y = tiles - 1;
@@ -81,128 +89,87 @@ function update(){
   // self collision
   for(let s of snake){
     if(s.x === head.x && s.y === head.y){
-      return gameOver();
+      gameOver = true;
+      clearInterval(loop);
+      return;
     }
   }
 
   snake.unshift(head);
 
-  // eat food
   if(head.x === food.x && head.y === food.y){
     score++;
-    document.getElementById("score").innerText = score;
     food = spawnFood();
 
-    // increase speed slightly
-    if(speed < 12) speed += 0.3;
+    // slight speed increase (realistic)
+    if(speed > 70){
+      speed -= 3;
+      clearInterval(loop);
+      loop = setInterval(gameLoop, speed);
+    }
+
   } else {
     snake.pop();
   }
 }
 
 // ===== DRAW =====
-function draw(interp){
-  ctx.clearRect(0,0,400,400);
+function draw(){
+  // screen
+  ctx.fillStyle="#9bbc0f";
+  ctx.fillRect(0,0,300,300);
 
-  // grid
-  ctx.strokeStyle="rgba(255,255,255,0.04)";
-  for(let i=0;i<tiles;i++){
-    ctx.beginPath();
-    ctx.moveTo(i*size,0);
-    ctx.lineTo(i*size,400);
-    ctx.stroke();
-
-    ctx.beginPath();
-    ctx.moveTo(0,i*size);
-    ctx.lineTo(400,i*size);
-    ctx.stroke();
-  }
-
-  // snake smooth
-  snake.forEach((s,i)=>{
-    let prev = snake[i+1] || s;
-
-    let x = (prev.x + (s.x - prev.x)*interp) * size;
-    let y = (prev.y + (s.y - prev.y)*interp) * size;
-
-    ctx.fillStyle = `hsl(${120+i*5},100%,50%)`;
-    ctx.fillRect(x+2,y+2,size-4,size-4);
+  // snake
+  ctx.fillStyle="#0f380f";
+  snake.forEach(s=>{
+    ctx.fillRect(s.x*size, s.y*size, size-2, size-2);
   });
 
-  // food glow + pulse
-  food.pulse += 0.1;
-  let scale = 1 + Math.sin(food.pulse)*0.2;
+  // food
+  ctx.fillStyle="#306230";
+  ctx.fillRect(food.x*size, food.y*size, size-2, size-2);
 
-  ctx.shadowBlur = 15;
-  ctx.shadowColor = "red";
-  ctx.fillStyle="red";
+  // score
+  ctx.fillStyle="#0f380f";
+  ctx.font="14px monospace";
+  ctx.fillText("Score: "+score, 5, 15);
 
-  ctx.fillRect(
-    food.x*size + (size*(1-scale))/2,
-    food.y*size + (size*(1-scale))/2,
-    size*scale,
-    size*scale
-  );
+  // GAME OVER SCREEN
+  if(gameOver){
+    ctx.fillStyle="rgba(155,188,15,0.9)";
+    ctx.fillRect(0,100,300,100);
 
-  ctx.shadowBlur = 0;
-}
+    ctx.fillStyle="#0f380f";
+    ctx.font="16px monospace";
+    ctx.fillText("GAME OVER", 85, 140);
 
-// ===== GAME LOOP =====
-function gameLoop(time){
-  let delta = (time - lastTime)/1000;
-  lastTime = time;
-  acc += delta;
-
-  let step = 1/speed;
-
-  while(acc > step){
-    update();
-    acc -= step;
+    ctx.font="12px monospace";
+    ctx.fillText("Score: "+score, 100, 160);
+    ctx.fillText("Press any key", 75, 180);
   }
-
-  draw(acc/step);
-  requestAnimationFrame(gameLoop);
 }
 
-// ===== GAME OVER =====
-function gameOver(){
-  init(); // restart instantly (OG style)
+// ===== LOOP =====
+function gameLoop(){
+  update();
+  draw();
 }
 
-// ===== INPUT =====
-function setDir(x,y){
-  if(x === -dir.x && y === -dir.y) return;
-  nextDir = {x,y};
-}
-
-// keyboard
+// ===== CONTROLS =====
 document.addEventListener("keydown", e=>{
-  if(e.key==="ArrowUp"||e.key==="w") setDir(0,-1);
-  if(e.key==="ArrowDown"||e.key==="s") setDir(0,1);
-  if(e.key==="ArrowLeft"||e.key==="a") setDir(-1,0);
-  if(e.key==="ArrowRight"||e.key==="d") setDir(1,0);
-});
-
-// swipe
-let sx,sy;
-canvas.addEventListener("touchstart",e=>{
-  sx=e.touches[0].clientX;
-  sy=e.touches[0].clientY;
-});
-
-canvas.addEventListener("touchend",e=>{
-  let dx=e.changedTouches[0].clientX-sx;
-  let dy=e.changedTouches[0].clientY-sy;
-
-  if(Math.abs(dx)>Math.abs(dy)){
-    setDir(dx>0?1:-1,0);
-  } else {
-    setDir(0,dy>0?1:-1);
+  if(gameOver){
+    init(); // restart on any key
+    return;
   }
+
+  if(e.key==="ArrowUp" && dy===0){ dx=0; dy=-1; }
+  if(e.key==="ArrowDown" && dy===0){ dx=0; dy=1; }
+  if(e.key==="ArrowLeft" && dx===0){ dx=-1; dy=0; }
+  if(e.key==="ArrowRight" && dx===0){ dx=1; dy=0; }
 });
 
+// ===== START =====
 init();
-requestAnimationFrame(gameLoop);
 </script>
 
 </body>
